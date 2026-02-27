@@ -1,0 +1,33 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "platformio.workspace": [],
+    "platformio.env.default": "",
+    "files.exclude": {
+      "**/.pio": true,
+      "**/.vscode": false
+    },
+    "search.exclude": {
+      "**/.pio": true
+    },
+    "C_Cpp.default.includePath": [
+      "${workspaceFolder}/include",
+      "${workspaceFolder}/lib/**",
+      "${workspaceFolder}/src"
+    ],
+    "C_Cpp.default.browse.path": [
+      "${workspaceFolder}/include",
+      "${workspaceFolder}/lib/**",
+      "${workspaceFolder}/src"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "platformio.platformio-ide"
+    ]
+  }
+}
