@@ -57,11 +57,11 @@ static const uint16_t crc16_table[256] = {
  */
 uint16_t protocol_calc_crc(const uint8_t* data, size_t length) {
     uint16_t crc = 0xFFFF;
-    
+
     for (size_t i = 0; i < length; i++) {
         crc = (crc << 8) ^ crc16_table[((crc >> 8) ^ data[i]) & 0x00FF];
     }
-    
+
     return crc;
 }
 
@@ -72,11 +72,11 @@ bool protocol_verify_crc(const uint8_t* packet, size_t length) {
     if (length < 2) {
         return false;  // Packet too short
     }
-    
+
     // CRC is last 2 bytes of packet
     uint16_t received_crc = (packet[length - 2] << 8) | packet[length - 1];
     uint16_t calculated_crc = protocol_calc_crc(packet, length - 2);
-    
+
     return (received_crc == calculated_crc);
 }
 
@@ -91,7 +91,7 @@ void protocol_build_sensor_packet(packet_t* pkt, uint8_t node_id,
                                    uint8_t config_ver, sensor_payload_t* payload) {
     // Clear packet buffer
     memset(pkt, 0, sizeof(packet_t));
-    
+
     // Fill sensor packet structure
     pkt->sensor.type = PKT_TYPE_SENSOR_DATA;
     pkt->sensor.node_id = node_id;
@@ -99,7 +99,7 @@ void protocol_build_sensor_packet(packet_t* pkt, uint8_t node_id,
     pkt->sensor.rssi = 0;  // Will be set by receiver
     pkt->sensor.config_version = config_ver;
     memcpy(&pkt->sensor.payload, payload, sizeof(sensor_payload_t));
-    
+
     // Calculate CRC (over all bytes except CRC itself)
     uint16_t crc = protocol_calc_crc(pkt->raw, SENSOR_PACKET_SIZE - 2);
     pkt->sensor.crc = crc;
@@ -112,7 +112,7 @@ void protocol_build_config_packet(packet_t* pkt, uint8_t node_id,
                                    config_payload_t* config) {
     // Clear packet buffer
     memset(pkt, 0, sizeof(packet_t));
-    
+
     // Fill config packet structure
     pkt->config.type = PKT_TYPE_CONFIG_UPDATE;
     pkt->config.node_id = node_id;
@@ -121,35 +121,8 @@ void protocol_build_config_packet(packet_t* pkt, uint8_t node_id,
     pkt->config.interval_minutes = config->interval_minutes;
     pkt->config.relay_enabled = config->relay_enabled;
     pkt->config.tx_power_dbm = config->tx_power_dbm;
-    
+
     // Calculate CRC (over all bytes except CRC itself)
     uint16_t crc = protocol_calc_crc(pkt->raw, CONFIG_PACKET_SIZE - 2);
     pkt->config.crc = crc;
-}
-
-// ============================================================================
-// Node Configuration Packet Builder
-// ============================================================================
-
-/**
- * @brief Build node configuration update packet
- * 
- * Called when gateway detects config change in Notehub.
- * Broadcasts to all nodes (node_id = 0) or unicasts to specific node.
- * 
- * TODO: Implement when node config broadcast is needed (Phase 2)
- */
-void protocol_build_node_config_packet(packet_t* pkt, uint8_t node_id,
-                                        node_config_payload_t* config) {
-    // Clear packet buffer
-    memset(pkt, 0, sizeof(packet_t));
-
-    // Fill node config packet structure
-    pkt->node_config.type = PKT_TYPE_NODE_CONFIG;
-    pkt->node_config.node_id = node_id;
-    memcpy(&pkt->node_config.config, config, sizeof(node_config_payload_t));
-
-    // Calculate CRC (over all bytes except CRC itself)
-    uint16_t crc = protocol_calc_crc(pkt->raw, NODE_CONFIG_PACKET_SIZE - 2);
-    pkt->node_config.crc = crc;
 }

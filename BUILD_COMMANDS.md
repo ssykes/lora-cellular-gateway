@@ -9,7 +9,7 @@
 
 ### Build and Upload Node
 ```bash
-pio run -e node_feather_m0 -t upload
+
 pio device monitor -e node_feather_m0 -b 115200
 ```
 
