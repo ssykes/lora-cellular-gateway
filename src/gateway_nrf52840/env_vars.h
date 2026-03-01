@@ -82,6 +82,11 @@ typedef struct {
  * - uint8_t node_tx_interval;    // Node TX interval (minutes)
  * - uint8_t node_threshold;      // Node trigger threshold (0-100)
  * - uint8_t node_tx_power;       // Node TX power (dBm)
+ * 
+ * TODO: Add power management fields (Phase 3):
+ * - uint8_t listen_start_hour;   // Listen window start (08:00)
+ * - uint8_t listen_end_hour;     // Listen window end (22:00)
+ * - bool quiet_hours_enabled;    // Enable quiet hours
  */
 typedef struct {
     // Listen Window

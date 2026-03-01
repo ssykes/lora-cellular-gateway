@@ -8,6 +8,18 @@
  * - LoRa FeatherWing (RFM95W)
  * - Blues Notecarrier-F
  * - Blues Notecard (NOTE-WBNAN)
+ * 
+ * TODO: Power management (Phase 3 - Field Deployment)
+ * Current: Always-on, USB powered for testing
+ * Future: Deep sleep, battery powered for field
+ * 
+ * Required for Phase 3:
+ * - Deep sleep between packets (~6 µA)
+ * - MOSFET control for Notecard power (D5 → CTRL)
+ * - Listen window scheduling (08:00-22:00)
+ * - RTC alarm for wake-up
+ * - Battery voltage monitoring
+ * - 47-100 µF bulk capacitor on Notecard VCC
  */
 
 #include <Arduino.h>
