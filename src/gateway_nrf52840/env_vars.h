@@ -169,23 +169,6 @@ bool env_vars_sync(Notecard& notecard, gateway_config_t* config);
 bool env_vars_should_sync(gateway_config_t* config);
 
 /**
- * @brief Check if currently in listen window
- *
- * @param config Pointer to gateway configuration structure
- * @return true if in listen window, false if quiet hours
- */
-bool env_vars_is_listen_window(gateway_config_t* config);
-
-/**
- * @brief Get current hour (from RTC or system time)
- *
- * TODO: Implement RTC read for nRF52840
- *
- * @return Current hour (0-23)
- */
-uint8_t env_vars_get_current_hour(void);
-
-/**
  * @brief Print all environment variables (debug helper)
  *
  * @param config Pointer to gateway configuration structure

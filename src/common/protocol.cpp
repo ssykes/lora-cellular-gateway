@@ -91,15 +91,17 @@ void protocol_build_sensor_packet(packet_t* pkt, uint8_t node_id,
                                    uint8_t config_ver, sensor_payload_t* payload) {
     // Clear packet buffer
     memset(pkt, 0, sizeof(packet_t));
-    
+
     // Fill sensor packet structure
     pkt->sensor.type = PKT_TYPE_SENSOR_DATA;
+    // TODO Phase 4: Set radio_type when supporting dual-radio (LoRa/FSK)
+    // pkt->sensor.radio_type = RADIO_TYPE_LORA;
     pkt->sensor.node_id = node_id;
     pkt->sensor.hop_count = 0;
     pkt->sensor.rssi = 0;  // Will be set by receiver
     pkt->sensor.config_version = config_ver;
     memcpy(&pkt->sensor.payload, payload, sizeof(sensor_payload_t));
-    
+
     // Calculate CRC (over all bytes except CRC itself)
     uint16_t crc = protocol_calc_crc(pkt->raw, SENSOR_PACKET_SIZE - 2);
     pkt->sensor.crc = crc;

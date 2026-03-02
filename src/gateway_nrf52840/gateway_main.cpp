@@ -9,22 +9,68 @@
  * - Blues Notecarrier-F
  * - Blues Notecard (NOTE-WBNAN)
  *
- * Power Management:
- * - Current: Always-on, USB powered for testing
- * - Phase 3: Deep sleep with ATTN pin wake-up
+ * ============================================================================
+ * Power Management Strategy (Recommended: Hybrid Approach)
+ * ============================================================================
  *
- * Attention Pin (ATTN):
- * - Wire N_ATTN (Notecarrier F) to GPIO pin (e.g., D2, D3)
- * - Notecard interrupts gateway when cloud has data
- * - Gateway sleeps (~6 µA), wakes on ATTN interrupt
- * - Handles: env var updates, inbound Notes, commands
+ * Current State (Testing - USB Powered):
+ * --------------------------------------
+ * - Gateway always-on (~53 mA average with polling)
+ * - Continuously listens for LoRa packets
+ * - Polls cloud every 6 hours for config
  *
- * TODO Phase 3 - Power Management:
- * - Add MOSFET circuit for Notecard power control (D5 → gate)
- * - Implement nRF52840 System OFF sleep
- * - Add RTC alarm for periodic wake
- * - Add battery voltage monitoring
- * - Add 47-100 µF bulk capacitor on Notecard VCC
+ * Phase 3 (Field Deployment - Battery Powered):
+ * ---------------------------------------------
+ * Recommended architecture for optimal power vs responsiveness:
+ *
+ * Sleep Current: ~42.5 µA total
+ *   - nRF52840 MCU: ~6 µA (System OFF)
+ *   - LoRa RFM95W: ~1.5 µA (standby mode)
+ *   - Notecard: ~35 µA (idle, always on for cloud reception)
+ *
+ * Wake Sources (all interrupt-driven):
+ *   1. LoRa DIO0 interrupt - Node transmits sensor data
+ *   2. Notecard ATTN interrupt - Cloud has command/config
+ *   3. Optional timer - Periodic check-in (15 min - 6 hours)
+ *
+ * Power Trade-offs:
+ * -----------------
+ * | Architecture              | Sleep Current | Cloud Latency | Hardware |
+ * |---------------------------|---------------|---------------|----------|
+ * | Always-on (current)       | ~53 mA        | Immediate     | None     |
+ * | LoRa interrupt only       | ~42.5 µA      | Immediate     | None     |
+ * | LoRa + ATTN (recommended) | ~42.5 µA      | <1 second     | None     |
+ * | LoRa + MOSFET (max save)  | ~7.5 µA       | 15-60 min     | MOSFET   |
+ *
+ * Battery Life (10,000 mAh LiPo):
+ * - At 42.5 µA: ~2.7 years
+ * - At 7.5 µA: ~15 years
+ *
+ * Recommendation:
+ * Use LoRa + ATTN (no MOSFET) for most deployments.
+ * 35 µA Notecard idle current is acceptable for 2-5 year deployments.
+ * Add MOSFET only for 5+ year inaccessible deployments.
+ *
+ * TODO Phase 3 - Implementation Steps:
+ * ------------------------------------
+ * 1. [ ] Wire LoRa DIO0 to GPIO interrupt (D3 recommended)
+ * 2. [ ] Implement LoRa DIO0 interrupt handler
+ * 3. [ ] Replace radio.receive() polling with interrupt-driven RX
+ * 4. [ ] Implement nRF52840 System OFF sleep
+ * 5. [ ] Add timer wake for periodic cloud check (optional)
+ * 6. [ ] Add battery voltage monitoring
+ * 7. [ ] Add MOSFET circuit for Notecard power (if needed)
+ *    - D5 → MOSFET gate (controls Notecard VCC)
+ *    - Only if 5+ year deployment required
+ * 8. [ ] Add 47-100 µF bulk capacitor on Notecard VCC
+ *
+ * Hardware Changes Required:
+ * -------------------------
+ * - LoRa DIO0 → nRF52840 D3 (interrupt pin, currently not connected)
+ * - Notecard N_ATTN → nRF52840 D2 (already implemented)
+ * - Optional: MOSFET circuit (D5 → gate, Notecard VCC → drain)
+ *
+ * See: DESIGN.md Section 4.2 - Power Management Architecture
  */
 
 #include <Arduino.h>
@@ -48,10 +94,46 @@
 #define LORA_CS               10
 #define LORA_RST              11
 #define LORA_DIO0             6
+// TODO Phase 3: Change LORA_DIO0 to D3 for interrupt support
+// Current pin 6 is not broken out on Feather nRF52840
+// Wire RFM95W DIO0 → nRF52840 D3 (GPIO P0.03, interrupt-capable)
+// Update RadioLib instance: SX1276 radio = new Module(LORA_CS, 3, LORA_RST, RADIOLIB_NC);
+
+// TODO Phase 4 - RFM69 FSK Radio (Optional - for cost-sensitive deployments)
+// ==========================================================================
+// RFM69HCW pinout (compatible with RFM95W footprint):
+//   CS (NSS)  → D9  (available, SPI chip select)
+//   RESET     → D8  (available, or share with LoRa via diode)
+//   DIO0      → D4  (available, interrupt-capable GPIO)
+//   3.3V, GND → Power
+//   MOSI, MISO, SCK → Shared SPI bus
+//
+// Pin reservations (do not use for other purposes):
+#define FSK_CS_RESERVED       9         // Reserved for RFM69 CS (if added)
+#define FSK_RST_RESERVED      8         // Reserved for RFM69 RESET (if added)
+#define FSK_DIO0_RESERVED     4         // Reserved for RFM69 DIO0 (if added)
+//
+// Benefits:
+//   - 50% cost savings per node ($6-8 vs $12-15)
+//   - Same SPI interface, minimal code changes
+//   - Gateway handles both radios simultaneously
+//
+// Trade-offs:
+//   - Range: ~500m (FSK) vs 2-5 km (LoRa)
+//   - Power: Similar current, but FSK faster TX = less airtime
+//   - Interference: LoRa CSS better than FSK
+//
+// See: DESIGN.md Section 5.3 - Multi-Radio Support
 
 // Notecard pins
-#define NOTECARD_POWER_PIN    5         // TODO Phase 3: MOSFET gate for power control
+#define NOTECARD_POWER_PIN    5         // Current: Direct power (always on)
+                                        // TODO Phase 3: MOSFET gate for power control
+                                        // Wire: D5 → MOSFET gate, Notecard VCC → MOSFET drain
+                                        // Only needed for 5+ year deployments
+                                        // For 2-5 year: Leave always-on (~35 µA idle)
+
 #define NOTECARD_ATTN_PIN     2         // N_ATTN interrupt pin (wire from Notecarrier F)
+                                        // Already implemented - gateway wakes on cloud command
 
 // Status LED
 #define LED_PIN               13
@@ -61,6 +143,7 @@
 // ============================================================================
 
 // Radio instance (RFM95W = SX1276)
+// TODO Phase 3: Change DIO0 pin from 6 to 3 for interrupt support
 SX1276 radio = new Module(LORA_CS, LORA_DIO0, LORA_RST, RADIOLIB_NC);
 
 // Blues Notecard instance (OFFICIAL library)
@@ -77,6 +160,9 @@ uint8_t g_rx_length = 0;
 volatile bool g_attn_fired = false;   // Set by ISR when ATTN pin triggers
 bool g_attn_enabled = false;          // true if ATTN interrupt is armed
 
+// TODO Phase 3: Add LoRa interrupt flag
+// volatile bool g_lora_packet_ready = false;  // Set by DIO0 ISR
+
 // ============================================================================
 // Forward Declarations
 // ============================================================================
@@ -87,6 +173,9 @@ void forward_to_blues(sensor_packet_t* pkt);
 void handle_attn_interrupt();
 void arm_attn_interrupt(uint32_t seconds);
 void clear_attn_interrupt();
+
+// TODO Phase 3: Add sleep function
+// void enter_system_off_sleep(uint32_t sleep_ms);
 
 // ============================================================================
 // Helper Functions (Debug)
@@ -434,6 +523,72 @@ void loop() {
   }
 
   delay(500);
+  
+  // TODO Phase 3 - Implement Deep Sleep (After LoRa Interrupt)
+  // ==========================================================================
+  // Once LoRa DIO0 interrupt is implemented, replace the delay() above with:
+  //
+  // Option 1: Hybrid Sleep (Recommended - No MOSFET)
+  // ------------------------------------------------
+  // Power state: ~42.5 µA total
+  //   - MCU: System OFF (~6 µA)
+  //   - LoRa: Standby (~1.5 µA)
+  //   - Notecard: Idle, always on (~35 µA)
+  //
+  // Wake sources:
+  //   - LoRa DIO0 interrupt (node TX)
+  //   - Notecard ATTN interrupt (cloud command)
+  //   - Optional timer (periodic check-in)
+  //
+  // Code:
+  //   radio.sleep();  // LoRa standby (~1.5 µA)
+  //   arm_attn_interrupt();  // Re-arm for next cloud command
+  //   
+  //   // Enter System OFF - waits for interrupt
+  //   NRF_POWER->SYSTEMOFF = 1;  // ~6 µA
+  //   // Code continues here after wake (full reset)
+  //
+  //
+  // Option 2: Maximum Power Savings (With MOSFET)
+  // ----------------------------------------------
+  // Power state: ~7.5 µA total
+  //   - MCU: System OFF (~6 µA)
+  //   - LoRa: Standby (~1.5 µA)
+  //   - Notecard: OFF (0 µA, via MOSFET)
+  //
+  // Wake sources:
+  //   - LoRa DIO0 interrupt (node TX)
+  //   - Timer wake (periodic cloud check, e.g., every 30 min)
+  //
+  // Code:
+  //   radio.sleep();  // LoRa standby (~1.5 µA)
+  //   digitalWrite(NOTECARD_POWER_PIN, LOW);  // MOSFET off, Notecard off
+  //   
+  //   // Configure timer wake (e.g., 30 minutes)
+  //   // Use nRF52840 LPCOMP or GPIOTE for timer
+  //   
+  //   NRF_POWER->SYSTEMOFF = 1;  // ~6 µA
+  //   // After wake: Turn on Notecard, check for commands
+  //   digitalWrite(NOTECARD_POWER_PIN, HIGH);
+  //   delay(1000);  // Notecard boot time
+  //   check_cloud_commands();
+  //
+  //
+  // Power Comparison:
+  // -----------------
+  // | Mode                  | Current  | Battery (10k mAh) |
+  // |-----------------------|----------|-------------------|
+  // | Current (polling)     | ~53 mA   | ~8 days           |
+  // | Hybrid (no MOSFET)    | ~42.5 µA | ~2.7 years        |
+  // | Max save (w/ MOSFET)  | ~7.5 µA  | ~15 years         |
+  //
+  // Recommendation:
+  // Use Option 1 (Hybrid) for most deployments.
+  // 2.7 years on 10k mAh is sufficient for most use cases.
+  // Add MOSFET only for 5+ year inaccessible deployments.
+  //
+  // See: DESIGN.md Section 4.2 - Power Management Architecture
+  // ==========================================================================
 }
 
 void init_radio() {
@@ -501,6 +656,8 @@ void forward_to_blues(sensor_packet_t* pkt) {
   // Add all fields - any failure means abort
   bool ok = true;
   ok &= (JAddNumberToObject(body, "node_id", pkt->node_id) != NULL);
+  // TODO Phase 4: Add radio_type field when supporting dual-radio (LoRa/FSK)
+  // ok &= (JAddNumberToObject(body, "radio_type", pkt->radio_type) != NULL);
   ok &= (JAddNumberToObject(body, "temp", pkt->payload.temperature) != NULL);
   ok &= (JAddNumberToObject(body, "humidity", pkt->payload.humidity) != NULL);
   ok &= (JAddNumberToObject(body, "battery_mv", pkt->payload.battery_mv) != NULL);

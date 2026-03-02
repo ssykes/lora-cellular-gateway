@@ -1,11 +1,18 @@
 /**
  * @file protocol.h
  * @brief Binary protocol definition for LoRa sensor network
- * @version 1.0
+ * @version 1.1 - Multi-radio support (LoRa + RFM69 ready)
  * @date 2026-02-24
- * 
+ *
  * Packet structure for communication between sensor nodes and gateway.
  * Optimized for minimal airtime and battery efficiency.
+ *
+ * Radio Support:
+ * - Primary: LoRa (RFM95W/SX1276) - long range, low power
+ * - Future: FSK (RFM69HCW) - short range, lower cost
+ *
+ * Both radio types use the same packet structure.
+ * Radio type is tagged in packets for gateway processing.
  */
 
 #ifndef _PROTOCOL_H_
@@ -14,6 +21,24 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+// ============================================================================
+// Radio Type Definitions (for multi-radio gateway support)
+// ============================================================================
+
+/**
+ * @brief Radio type identifier
+ *
+ * Used by dual-radio gateways to distinguish between LoRa and FSK packets.
+ * Tagged in all packets for proper routing and processing.
+ *
+ * TODO Phase 4 - Dual Radio Support:
+ * - Add RFM69HCW FSK radio for short-range, low-cost nodes
+ * - Gateway handles both LoRa and FSK simultaneously
+ * - Radio type tagged in packets for cloud analytics
+ */
+#define RADIO_TYPE_LORA         0x00    // LoRa (RFM95W/SX1276) - default
+#define RADIO_TYPE_FSK          0x01    // FSK (RFM69HCW) - future support
 
 // ============================================================================
 // Packet Type Definitions
@@ -62,12 +87,18 @@ typedef struct {
 
 /**
  * @brief Sensor data packet structure
- * 
+ *
  * Transmitted by nodes at configured intervals.
  * Includes config version request for automatic updates.
+ *
+ * TODO Phase 4 - Multi-radio support:
+ * - radio_type field added for dual-radio gateways
+ * - Currently always RADIO_TYPE_LORA (0x00)
+ * - Future: RADIO_TYPE_FSK (0x01) for RFM69 nodes
  */
 typedef struct {
     uint8_t type;             // PKT_TYPE_SENSOR_DATA (0x01)
+    // TODO Phase 4: Add radio_type field here for dual-radio support
     uint8_t node_id;          // Source node ID (1-255)
     uint8_t hop_count;        // Number of relays (0 = direct)
     uint8_t rssi;             // RSSI in dBm (added by receiver)

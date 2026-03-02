@@ -107,46 +107,6 @@ const env_var_def_t* env_vars_get_by_name(const char* name) {
 }
 
 /**
- * @brief Get current hour
- */
-uint8_t env_vars_get_current_hour(void) {
-    // TODO: Read from nRF52840 RTC
-    // For testing, return noon (inside active window)
-    return 12;
-}
-
-/**
- * @brief Check if currently in listen window
- */
-bool env_vars_is_listen_window(gateway_config_t* config) {
-    if (config == NULL) {
-        return false;
-    }
-    
-    uint8_t hour = env_vars_get_current_hour();
-    
-    // Get field pointers from registry
-    const env_var_def_t* start_var = env_vars_get_by_name("gateway_listen_start");
-    const env_var_def_t* end_var = env_vars_get_by_name("gateway_listen_end");
-    
-    if (start_var == NULL || end_var == NULL) {
-        return true;  // Default to active if not configured
-    }
-    
-    uint8_t start_hour = *((uint8_t*)start_var->storage);
-    uint8_t end_hour = *((uint8_t*)end_var->storage);
-    
-    // Handle normal window (e.g., 08:00-22:00)
-    if (start_hour < end_hour) {
-        return (hour >= start_hour && hour < end_hour);
-    } 
-    // Handle overnight window (e.g., 22:00-06:00)
-    else {
-        return (hour >= start_hour || hour < end_hour);
-    }
-}
-
-/**
  * @brief Check if it's time to sync environment variables
  */
 bool env_vars_should_sync(gateway_config_t* config) {
