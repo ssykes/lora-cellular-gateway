@@ -18,6 +18,7 @@
 #include "protocol.h"
 #include "radio_config.h"
 #include "pins.h"
+#include "debug.h"
 
 // ============================================================================
 // Configuration
@@ -82,10 +83,10 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(2000);  // Wait for serial
 
-  Serial.println("\n*** Node Hello World ***");
-  Serial.printf("Board: Adafruit Feather M0 RFM9x\n");
-  Serial.printf("Node ID: %d\n", NODE_ID);
-  Serial.printf("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
+  DEBUG_PRINT("\n*** Node Hello World ***");
+  DEBUG_PRINTF("Board: Adafruit Feather M0 RFM9x\n");
+  DEBUG_PRINTF("Node ID: %d\n", NODE_ID);
+  DEBUG_PRINTF("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
 
   // Initialize radio
   init_radio();
@@ -96,7 +97,7 @@ void setup() {
   delay(100);
   digitalWrite(PIN_LED, LOW);
 
-  Serial.println("*** Node ready - sending first packet ***\n");
+  DEBUG_PRINT("*** Node ready - sending first packet ***\n");
 
   // Send first packet immediately
   send_sensor_data();
@@ -124,7 +125,7 @@ void loop() {
 // ============================================================================
 
 void init_radio(void) {
-  Serial.println("Initializing LoRa radio...");
+  DEBUG_PRINT("Initializing LoRa radio...");
 
   // Use frequency from config (can be overridden by Blues env var on gateway)
   float frequency = LORA_FREQUENCY_DEFAULT;
@@ -141,14 +142,14 @@ void init_radio(void) {
   );
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.printf("Radio initialized successfully\n");
-    Serial.printf("  Frequency: %.1f MHz\n", frequency);
-    Serial.printf("  Spreading Factor: %d\n", LORA_SPREADING_FACTOR);
-    Serial.printf("  Bandwidth: %d kHz\n", LORA_BANDWIDTH);
-    Serial.printf("  TX Power: %d dBm\n", LORA_TX_POWER);
+    DEBUG_PRINT("Radio initialized successfully");
+    DEBUG_PRINTF("  Frequency: %.1f MHz\n", frequency);
+    DEBUG_PRINTF("  Spreading Factor: %d\n", LORA_SPREADING_FACTOR);
+    DEBUG_PRINTF("  Bandwidth: %d kHz\n", LORA_BANDWIDTH);
+    DEBUG_PRINTF("  TX Power: %d dBm\n", LORA_TX_POWER);
   } else {
-    Serial.printf("ERROR: Radio initialization failed: %d\n", state);
-    Serial.println("Check wiring and restart");
+    DEBUG_PRINTF("ERROR: Radio initialization failed: %d\n", state);
+    DEBUG_PRINT("Check wiring and restart");
     while (1) {
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
       delay(200);
@@ -180,7 +181,7 @@ void read_sensors(sensor_payload_t* payload) {
     payload->sensor_flags |= SENSOR_FLAG_BATTERY_LOW;
   }
 
-  Serial.printf("Sensors: temp=%.1fC, humidity=%.1f%%, battery=%dmV\n",
+  DEBUG_PRINTF("Sensors: temp=%.1fC, humidity=%.1f%%, battery=%dmV\n",
                 payload->temperature, payload->humidity, payload->battery_mv);
 }
 
@@ -205,7 +206,7 @@ uint16_t read_battery_mv(void) {
 // ============================================================================
 
 void send_sensor_data(void) {
-  Serial.printf("\n[TX %lu] Sending sensor data...\n", ++g_tx_count);
+  DEBUG_PRINTF("\n[TX %lu] Sending sensor data...\n", ++g_tx_count);
 
   // Read sensors
   sensor_payload_t payload;
@@ -216,20 +217,20 @@ void send_sensor_data(void) {
   protocol_build_sensor_packet(&pkt, NODE_ID, g_config_version, &payload);
 
   // Transmit
-  Serial.println("Transmitting packet...");
+  DEBUG_PRINT("Transmitting packet...");
   int state = radio.transmit(pkt.raw, SENSOR_PACKET_SIZE);
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println("TX successful!");
+    DEBUG_PRINT("TX successful!");
     digitalWrite(PIN_LED, HIGH);
     delay(50);
     digitalWrite(PIN_LED, LOW);
   } else {
-    Serial.printf("TX failed: %d\n", state);
+    DEBUG_PRINTF("TX failed: %d\n", state);
   }
 
   // Print packet info for debug
-  Serial.printf("Packet size: %d bytes\n", SENSOR_PACKET_SIZE);
-  Serial.printf("Node ID: %d, Config version: %d\n", NODE_ID, g_config_version);
+  DEBUG_PRINTF("Packet size: %d bytes\n", SENSOR_PACKET_SIZE);
+  DEBUG_PRINTF("Node ID: %d, Config version: %d\n", NODE_ID, g_config_version);
 }
 

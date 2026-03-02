@@ -20,6 +20,7 @@
 #include "protocol.h"
 #include "radio_config.h"
 #include "pins.h"
+#include "debug.h"
 
 // ============================================================================
 // Configuration
@@ -59,10 +60,10 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(2000);
 
-  Serial.println("\n*** Node ESP32 Feather ***");
-  Serial.printf("Board: Adafruit ESP32 Feather + FeatherWing\n");
-  Serial.printf("Node ID: %d\n", NODE_ID);
-  Serial.printf("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
+  DEBUG_PRINT("\n*** Node ESP32 Feather ***");
+  DEBUG_PRINTF("Board: Adafruit ESP32 Feather + FeatherWing\n");
+  DEBUG_PRINTF("Node ID: %d\n", NODE_ID);
+  DEBUG_PRINTF("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
 
   init_radio();
 
@@ -71,10 +72,10 @@ void setup() {
   delay(100);
   digitalWrite(PIN_LED, LOW);
 
-  Serial.println("*** First transmission ***\n");
+  DEBUG_PRINT("*** First transmission ***\n");
   send_sensor_data();
 
-  Serial.println("\nSleeping...\n");
+  DEBUG_PRINT("\nSleeping...\n");
   enter_light_sleep((uint32_t)TX_INTERVAL_SEC * 1000UL);
 }
 
@@ -92,7 +93,7 @@ void loop() {
 // ============================================================================
 
 void init_radio(void) {
-  Serial.println("Initializing LoRa radio...");
+  DEBUG_PRINT("Initializing LoRa radio...");
 
   int state = radio.begin(
     LORA_FREQUENCY_DEFAULT,
@@ -106,10 +107,10 @@ void init_radio(void) {
   );
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.printf("Radio OK: %.1f MHz, SF%d, %d dBm\n",
+    DEBUG_PRINTF("Radio OK: %.1f MHz, SF%d, %d dBm\n",
                   LORA_FREQUENCY_DEFAULT, LORA_SPREADING_FACTOR, LORA_TX_POWER);
   } else {
-    Serial.printf("ERROR: Radio init failed: %d\n", state);
+    DEBUG_PRINTF("ERROR: Radio init failed: %d\n", state);
     while (1) {
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
       delay(200);
@@ -132,7 +133,7 @@ void read_sensors(sensor_payload_t* payload) {
     payload->sensor_flags |= SENSOR_FLAG_BATTERY_LOW;
   }
 
-  Serial.printf("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
+  DEBUG_PRINTF("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
                 payload->temperature, payload->humidity, payload->battery_mv);
 }
 
@@ -154,7 +155,7 @@ uint16_t read_battery_mv(void) {
 // ============================================================================
 
 void send_sensor_data(void) {
-  Serial.printf("\n[TX %lu] Sending...\n", ++g_tx_count);
+  DEBUG_PRINTF("\n[TX %lu] Sending...\n", ++g_tx_count);
 
   sensor_payload_t payload;
   read_sensors(&payload);
@@ -162,16 +163,16 @@ void send_sensor_data(void) {
   packet_t pkt;
   protocol_build_sensor_packet(&pkt, NODE_ID, g_config_version, &payload);
 
-  Serial.println("Transmitting...");
+  DEBUG_PRINT("Transmitting...");
   int state = radio.transmit(pkt.raw, SENSOR_PACKET_SIZE);
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println("TX OK!");
+    DEBUG_PRINT("TX OK!");
     digitalWrite(PIN_LED, HIGH);
     delay(50);
     digitalWrite(PIN_LED, LOW);
   } else {
-    Serial.printf("TX failed: %d\n", state);
+    DEBUG_PRINTF("TX failed: %d\n", state);
   }
 }
 
@@ -180,7 +181,7 @@ void send_sensor_data(void) {
 // ============================================================================
 
 void enter_light_sleep(uint32_t sleep_ms) {
-  Serial.printf("Sleeping for %lu ms\n", sleep_ms);
+  DEBUG_PRINTF("Sleeping for %lu ms\n", sleep_ms);
   Serial.flush();
 
   radio.sleep();
@@ -188,7 +189,7 @@ void enter_light_sleep(uint32_t sleep_ms) {
   // Configure wake timer
   esp_sleep_enable_timer_wakeup(sleep_ms * 1000ULL);
 
-  Serial.println("Goodnight!");
+  DEBUG_PRINT("Goodnight!");
   Serial.flush();
   delay(100);
 

@@ -22,6 +22,7 @@
 #include "protocol.h"
 #include "radio_config.h"
 #include "pins.h"
+#include "debug.h"
 
 // nRF52840 deep sleep
 #include <nrf_nvic.h>
@@ -89,10 +90,10 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(2000);
 
-  Serial.println("\n*** Node nRF52840 (Deep Sleep) ***");
-  Serial.printf("Board: Adafruit Feather nRF52840 + FeatherWing\n");
-  Serial.printf("Node ID: %d\n", NODE_ID);
-  Serial.printf("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
+  DEBUG_PRINT("\n*** Node nRF52840 (Deep Sleep) ***");
+  DEBUG_PRINTF("Board: Adafruit Feather nRF52840 + FeatherWing\n");
+  DEBUG_PRINTF("Node ID: %d\n", NODE_ID);
+  DEBUG_PRINTF("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
 
   // Initialize sensors
   init_sensors();
@@ -106,13 +107,13 @@ void setup() {
   delay(100);
   digitalWrite(PIN_LED, LOW);
 
-  Serial.println("*** First transmission ***\n");
+  DEBUG_PRINT("*** First transmission ***\n");
 
   // Send first packet
   send_sensor_data();
 
   // Enter deep sleep
-  Serial.println("\nEntering deep sleep...\n");
+  DEBUG_PRINT("\nEntering deep sleep...\n");
   enter_deep_sleep((uint32_t)TX_INTERVAL_SEC * 1000UL);
 }
 
@@ -132,25 +133,25 @@ void loop() {
 void init_sensors(void) {
 #ifdef USE_BME280
   if (!bme.begin(0x76)) {
-    Serial.println("BME280 not found at 0x76, trying 0x77...");
+    DEBUG_PRINT("BME280 not found at 0x76, trying 0x77...");
     if (!bme.begin(0x77)) {
-      Serial.println("ERROR: BME280 not found");
+      DEBUG_PRINT("ERROR: BME280 not found");
     }
   } else {
-    Serial.println("BME280 initialized");
+    DEBUG_PRINT("BME280 initialized");
   }
 #endif
 
 #ifdef USE_BME680
   if (!bme680.begin(0x76)) {
-    Serial.println("ERROR: BME680 not found");
+    DEBUG_PRINT("ERROR: BME680 not found");
   } else {
-    Serial.println("BME680 initialized");
+    DEBUG_PRINT("BME680 initialized");
   }
 #endif
 
 #ifdef USE_FAKE_SENSORS
-  Serial.println("Using fake sensors (test mode)");
+  DEBUG_PRINT("Using fake sensors (test mode)");
 #endif
 }
 
@@ -159,7 +160,7 @@ void init_sensors(void) {
 // ============================================================================
 
 void init_radio(void) {
-  Serial.println("Initializing LoRa radio...");
+  DEBUG_PRINT("Initializing LoRa radio...");
 
   int state = radio.begin(
     LORA_FREQUENCY_DEFAULT,
@@ -173,10 +174,10 @@ void init_radio(void) {
   );
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.printf("Radio OK: %.1f MHz, SF%d, %d dBm\n",
+    DEBUG_PRINTF("Radio OK: %.1f MHz, SF%d, %d dBm\n",
                   LORA_FREQUENCY_DEFAULT, LORA_SPREADING_FACTOR, LORA_TX_POWER);
   } else {
-    Serial.printf("ERROR: Radio init failed: %d\n", state);
+    DEBUG_PRINTF("ERROR: Radio init failed: %d\n", state);
     while (1) {
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
       delay(200);
@@ -213,7 +214,7 @@ void read_sensors(sensor_payload_t* payload) {
     payload->sensor_flags |= SENSOR_FLAG_BATTERY_LOW;
   }
 
-  Serial.printf("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
+  DEBUG_PRINTF("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
                 payload->temperature, payload->humidity, payload->battery_mv);
 }
 
@@ -239,7 +240,7 @@ uint16_t read_battery_mv(void) {
 // ============================================================================
 
 void send_sensor_data(void) {
-  Serial.printf("\n[TX %lu] Sending...\n", ++g_tx_count);
+  DEBUG_PRINTF("\n[TX %lu] Sending...\n", ++g_tx_count);
 
   sensor_payload_t payload;
   read_sensors(&payload);
@@ -247,16 +248,16 @@ void send_sensor_data(void) {
   packet_t pkt;
   protocol_build_sensor_packet(&pkt, NODE_ID, g_config_version, &payload);
 
-  Serial.println("Transmitting...");
+  DEBUG_PRINT("Transmitting...");
   int state = radio.transmit(pkt.raw, SENSOR_PACKET_SIZE);
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println("TX OK!");
+    DEBUG_PRINT("TX OK!");
     digitalWrite(PIN_LED, HIGH);
     delay(50);
     digitalWrite(PIN_LED, LOW);
   } else {
-    Serial.printf("TX failed: %d\n", state);
+    DEBUG_PRINTF("TX failed: %d\n", state);
   }
 }
 
@@ -275,7 +276,7 @@ void send_sensor_data(void) {
  * After wake: Full reset, setup() runs again
  */
 void enter_deep_sleep(uint32_t sleep_ms) {
-  Serial.printf("Sleeping for %lu ms\n", sleep_ms);
+  DEBUG_PRINTF("Sleeping for %lu ms\n", sleep_ms);
   Serial.flush();
 
   // Turn off radio

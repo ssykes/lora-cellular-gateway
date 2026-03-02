@@ -21,6 +21,7 @@
 #include "protocol.h"
 #include "radio_config.h"
 #include "pins.h"
+#include "debug.h"
 
 // ============================================================================
 // Configuration
@@ -74,10 +75,10 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(2000);
 
-  Serial.println("\n*** Node HelTec V4 (ESP32-S3) ***");
-  Serial.printf("Board: HelTec WiFi LoRa 32 V3\n");
-  Serial.printf("Node ID: %d\n", NODE_ID);
-  Serial.printf("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
+  DEBUG_PRINT("\n*** Node HelTec V4 (ESP32-S3) ***");
+  DEBUG_PRINTF("Board: HelTec WiFi LoRa 32 V3\n");
+  DEBUG_PRINTF("Node ID: %d\n", NODE_ID);
+  DEBUG_PRINTF("TX Interval: %d seconds\n", TX_INTERVAL_SEC);
 
 #ifdef USE_OLED
   init_display();
@@ -85,13 +86,13 @@ void setup() {
 
   init_radio();
 
-  Serial.println("*** Ready ***\n");
+  DEBUG_PRINT("*** Ready ***\n");
 
   // First transmission
   send_sensor_data();
 
   // Sleep
-  Serial.println("\nSleeping...\n");
+  DEBUG_PRINT("\nSleeping...\n");
   enter_light_sleep((uint32_t)TX_INTERVAL_SEC * 1000UL);
 }
 
@@ -114,7 +115,7 @@ void init_display(void) {
   Wire.begin(OLED_SDA, OLED_SCL);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("OLED init failed");
+    DEBUG_PRINT("OLED init failed");
     return;
   }
 
@@ -126,7 +127,7 @@ void init_display(void) {
   display.printf("ID: %d\n", NODE_ID);
   display.display();
 
-  Serial.println("OLED initialized");
+  DEBUG_PRINT("OLED initialized");
 #endif
 }
 
@@ -135,7 +136,7 @@ void init_display(void) {
 // ============================================================================
 
 void init_radio(void) {
-  Serial.println("Initializing SX1262...");
+  DEBUG_PRINT("Initializing SX1262...");
 
   // SX1262 requires different init than SX1276
   int state = radio.begin(
@@ -150,10 +151,10 @@ void init_radio(void) {
   );
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.printf("Radio OK: %.1f MHz, SF%d, %d dBm\n",
+    DEBUG_PRINTF("Radio OK: %.1f MHz, SF%d, %d dBm\n",
                   LORA_FREQUENCY_DEFAULT, LORA_SPREADING_FACTOR, LORA_TX_POWER);
   } else {
-    Serial.printf("ERROR: Radio init failed: %d\n", state);
+    DEBUG_PRINTF("ERROR: Radio init failed: %d\n", state);
     while (1) {
       delay(200);
     }
@@ -178,7 +179,7 @@ void read_sensors(sensor_payload_t* payload) {
     payload->sensor_flags |= SENSOR_FLAG_BATTERY_LOW;
   }
 
-  Serial.printf("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
+  DEBUG_PRINTF("Sensors: T=%.1fC, H=%.1f%%, Vbat=%dmV\n",
                 payload->temperature, payload->humidity, payload->battery_mv);
 
 #ifdef USE_OLED
@@ -208,7 +209,7 @@ uint16_t read_battery_mv(void) {
 // ============================================================================
 
 void send_sensor_data(void) {
-  Serial.printf("\n[TX %lu] Sending...\n", ++g_tx_count);
+  DEBUG_PRINTF("\n[TX %lu] Sending...\n", ++g_tx_count);
 
   sensor_payload_t payload;
   read_sensors(&payload);
@@ -216,13 +217,13 @@ void send_sensor_data(void) {
   packet_t pkt;
   protocol_build_sensor_packet(&pkt, NODE_ID, g_config_version, &payload);
 
-  Serial.println("Transmitting...");
+  DEBUG_PRINT("Transmitting...");
   int state = radio.transmit(pkt.raw, SENSOR_PACKET_SIZE);
 
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println("TX OK!");
+    DEBUG_PRINT("TX OK!");
   } else {
-    Serial.printf("TX failed: %d\n", state);
+    DEBUG_PRINTF("TX failed: %d\n", state);
   }
 }
 
@@ -239,7 +240,7 @@ void send_sensor_data(void) {
  * - Wake via: timer, GPIO, touch
  */
 void enter_light_sleep(uint32_t sleep_ms) {
-  Serial.printf("Sleeping for %lu ms\n", sleep_ms);
+  DEBUG_PRINTF("Sleeping for %lu ms\n", sleep_ms);
   Serial.flush();
 
   // Turn off radio
@@ -253,7 +254,7 @@ void enter_light_sleep(uint32_t sleep_ms) {
   esp_sleep_enable_timer_wakeup(sleep_ms * 1000ULL);
 
   // Enter light sleep
-  Serial.println("Goodnight!");
+  DEBUG_PRINT("Goodnight!");
   Serial.flush();
   delay(100);
 
