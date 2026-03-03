@@ -37,15 +37,23 @@
 
 #elif defined(BOARD_NODE_HELTEC_V4)
   // HelTec WiFi LoRa 32 V4 (ESP32-S3 + SX1262)
-  // Built-in LoRa radio with SPI pins hardcoded
-  #define LORA_CS_PIN       18          // VSPI_CS
-  #define LORA_RST_PIN      12          // RST
-  #define LORA_DIO0_PIN     14          // DIO0 (RX/TX interrupt)
-  #define LORA_DIO1_PIN     13          // DIO1 (SX1262 specific, BUSY)
-  #define PIN_LED           LED_BUILTIN // Built-in LED
+  // Board: HTIT-WB32LAF V4.2
+  // SX1262 radio with ESP32-S3 hardware SPI
+  // RadioLib Module: CS, DIO1, RST, BUSY
+  #define LORA_CS_PIN       8           // NSS (GPIO 8)
+  #define LORA_RST_PIN      12          // RESET (GPIO 12)
+  #define LORA_DIO0_PIN     13          // BUSY (GPIO 13) - RadioLib uses for busy/wait
+  #define LORA_DIO1_PIN     14          // DIO1 (GPIO 14)
+  // Hardware SPI (ESP32-S3 default: HSPI)
+  #define LORA_SPI_SCK      9           // SCK (GPIO 9)
+  #define LORA_SPI_MOSI     10          // MOSI (GPIO 10)
+  #define LORA_SPI_MISO     11          // MISO (GPIO 11)
+  #define PIN_LED           35          // Built-in LED (V4 specific)
   #define PIN_BATTERY       A0          // Battery voltage sense
-  #define OLED_SDA          41          // OLED SDA (HelTec V4)
-  #define OLED_SCL          42          // OLED SCL (HelTec V4)
+  // OLED (V4, if present) - per HelTec V4 documentation
+  #define OLED_SDA          17          // OLED SDA (GPIO 17)
+  #define OLED_SCL          18          // OLED SCL (GPIO 18)
+  #define OLED_RST          21          // OLED Reset (GPIO 21)
 
 #elif defined(BOARD_NODE_ESP32_FEATHER)
   // Adafruit ESP32 Feather + Adafruit LoRa FeatherWing (RFM95W)

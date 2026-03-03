@@ -635,6 +635,14 @@ void init_blues() {
 }
 
 void forward_to_blues(sensor_packet_t* pkt) {
+#if DEBUG == 1
+  // Debug mode: print packet but don't send to Notehub
+  DEBUG_PRINT("  [DEBUG] Would forward to Blues:");
+  DEBUG_PRINTF("    node_id=%d, temp=%.1fC, humidity=%.1f%%, battery=%dmV, rssi=%ddBm\n",
+                pkt->node_id, pkt->payload.temperature, pkt->payload.humidity,
+                pkt->payload.battery_mv, (int32_t)pkt->rssi);
+#else
+  // Production mode: send to Notehub
   DEBUG_PRINT("  Forwarding to Blues...");
 
   J *req = notecard.newRequest("note.add");
@@ -672,10 +680,9 @@ void forward_to_blues(sensor_packet_t* pkt) {
   // Send to Blues
   if (notecard.sendRequest(req)) {
     DEBUG_PRINT("  ✓ Blues send SUCCESS!");
-#if DEBUG == 1
     blink_tx_success();
-#endif
   } else {
     DEBUG_PRINT("  ✗ Blues send FAILED");
   }
+#endif
 }
