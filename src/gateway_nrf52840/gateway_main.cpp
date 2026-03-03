@@ -489,6 +489,11 @@ void loop() {
 
   // Listen for LoRa packets from nodes (POLLING MODE - Phase 3: convert to interrupt)
   DEBUG_PRINT("Listening...");
+  
+  // Re-arm radio for receive (in case it wasn't properly set after last packet)
+  radio.startReceive();
+  delay(100);  // Let radio settle into RX mode
+  
   int state = radio.receive(g_rx_buffer, 30);
 
   if (state == RADIOLIB_ERR_NONE) {
@@ -516,13 +521,19 @@ void loop() {
     }
 
     digitalWrite(LED_PIN, LOW);
+    
+    // Re-arm for next packet
+    radio.startReceive();
+    DEBUG_PRINT("  [RX] Re-armed for next packet\n");
   } else if (state == RADIOLIB_ERR_RX_TIMEOUT) {
     DEBUG_PRINT("  (timeout - no packet)");
   } else {
     DEBUG_PRINTF("  Error: %d\n", state);
+    // Re-arm on error too
   }
 
-  delay(500);
+  // radio.startReceive();
+  // delay(500);
   
   // TODO Phase 3 - Implement Deep Sleep (After LoRa Interrupt)
   // ==========================================================================
